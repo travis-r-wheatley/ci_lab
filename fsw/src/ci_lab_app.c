@@ -112,7 +112,7 @@ static CFE_EVS_BinFilter_t  CI_EventFilters[] =
 void CI_Lab_AppMain( void )
 {
     int32  status;
-    uint32 RunStatus = CFE_ES_APP_RUN;
+    uint32 RunStatus = CFE_ES_RunStatus_APP_RUN;
 
     CFE_ES_PerfLogEntry(CI_MAIN_TASK_PERF_ID);
 
@@ -168,7 +168,7 @@ void CI_TaskInit(void)
 
     CFE_EVS_Register(CI_EventFilters,
                      sizeof(CI_EventFilters)/sizeof(CFE_EVS_BinFilter_t),
-                     CFE_EVS_BINARY_FILTER);
+                     CFE_EVS_EventFilter_BINARY);
 
     CFE_SB_CreatePipe(&CI_CommandPipe, CI_PIPE_DEPTH,"CI_LAB_CMD_PIPE");
     CFE_SB_Subscribe(CI_LAB_CMD_MID, CI_CommandPipe);
@@ -176,7 +176,8 @@ void CI_TaskInit(void)
 
     if ( (CI_SocketID = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0)
     {
-        CFE_EVS_SendEvent(CI_SOCKETCREATE_ERR_EID,CFE_EVS_ERROR,"CI: create socket failed = %d", errno);
+        CFE_EVS_SendEvent(CI_SOCKETCREATE_ERR_EID,CFE_EVS_EventType_ERROR,
+                          "CI: create socket failed = %d", errno);
     }
     else
     {
@@ -187,7 +188,8 @@ void CI_TaskInit(void)
 
        if ( (bind(CI_SocketID, (struct sockaddr *) &CI_SocketAddress, sizeof(CI_SocketAddress)) < 0) )
        {
-           CFE_EVS_SendEvent(CI_SOCKETBIND_ERR_EID,CFE_EVS_ERROR,"CI: bind socket failed = %d", errno);
+           CFE_EVS_SendEvent(CI_SOCKETBIND_ERR_EID,CFE_EVS_EventType_ERROR,
+                             "CI: bind socket failed = %d", errno);
        }
        else
        {
@@ -215,7 +217,7 @@ void CI_TaskInit(void)
                    CI_LAB_HK_TLM_LNGTH, TRUE);
 
 				
-    CFE_EVS_SendEvent (CI_STARTUP_INF_EID, CFE_EVS_INFORMATION,
+    CFE_EVS_SendEvent (CI_STARTUP_INF_EID, CFE_EVS_EventType_INFORMATION,
                "CI Lab Initialized.  Version %d.%d.%d.%d",
                 CI_LAB_MAJOR_VERSION,
                 CI_LAB_MINOR_VERSION, 
@@ -255,7 +257,7 @@ MsgId = CFE_SB_GetMsgId(CIMsgPtr);
 
         default:
             CI_HkTelemetryPkt.ci_command_error_count++;
-            CFE_EVS_SendEvent(CI_COMMAND_ERR_EID,CFE_EVS_ERROR,
+            CFE_EVS_SendEvent(CI_COMMAND_ERR_EID,CFE_EVS_EventType_ERROR,
 			"CI: invalid command packet,MID = 0x%x", MsgId);
             break;
     }
@@ -281,7 +283,7 @@ uint16 CommandCode;
     {
         case CI_NOOP_CC:
             CI_HkTelemetryPkt.ci_command_count++;
-            CFE_EVS_SendEvent(CI_COMMANDNOP_INF_EID,CFE_EVS_INFORMATION,
+            CFE_EVS_SendEvent(CI_COMMANDNOP_INF_EID,CFE_EVS_EventType_INFORMATION,
 			"CI: NOOP command");
             break;
 
@@ -364,7 +366,7 @@ void CI_ResetCounters(void)
     CI_HkTelemetryPkt.NAKPdusDropped = 0;
     CI_HkTelemetryPkt.PDUsCaptured   = 0;
 
-    CFE_EVS_SendEvent(CI_COMMANDRST_INF_EID, CFE_EVS_INFORMATION,
+    CFE_EVS_SendEvent(CI_COMMANDRST_INF_EID, CFE_EVS_EventType_INFORMATION,
 		"CI: RESET command");
     return;
 
@@ -397,7 +399,7 @@ CI_ModifyFileSizeCmd_t *CmdPtr;
     adjustFileSize = TRUE;
 
     CI_HkTelemetryPkt.ci_command_count++;
-    CFE_EVS_SendEvent(CI_MOD_PDU_FILESIZE_CMD_EID, CFE_EVS_DEBUG,
+    CFE_EVS_SendEvent(CI_MOD_PDU_FILESIZE_CMD_EID, CFE_EVS_EventType_DEBUG,
               "CI: Modify PDU File Size\n");
   }
 
@@ -423,7 +425,7 @@ uint16 ExpectedLength = sizeof(CI_NoArgsCmd_t);
     corruptChecksum = TRUE;
 
     CI_HkTelemetryPkt.ci_command_count++;
-    CFE_EVS_SendEvent(CI_CORRUPT_CHECKSUM_CMD_EID, CFE_EVS_DEBUG,
+    CFE_EVS_SendEvent(CI_CORRUPT_CHECKSUM_CMD_EID, CFE_EVS_EventType_DEBUG,
               "CI: Corrupt PDU Checksum\n");
   }
 
@@ -481,7 +483,8 @@ CI_DropPDUCmd_t *CmdPtr;
     }
 
     CI_HkTelemetryPkt.ci_command_count++;
-    CFE_EVS_SendEvent(CI_DROP_PDU_CMD_EID, CFE_EVS_DEBUG, "CI: Drop PDU\n");
+    CFE_EVS_SendEvent(CI_DROP_PDU_CMD_EID, CFE_EVS_EventType_DEBUG,
+                      "CI: Drop PDU\n");
   }
 
   return;
@@ -505,19 +508,19 @@ CI_CapturePDUCmd_t *CmdPtr;
   {
     CmdPtr = ((CI_CapturePDUCmd_t *)msg);
 
-    if (CmdPtr->PDUMsgID <= CFE_SB_HIGHEST_VALID_MSGID)
+    if (CmdPtr->PDUMsgID <= CFE_PLATFORM_SB_HIGHEST_VALID_MSGID)
     {
       /* Save the messageID in a global variable */
       PDUMessageID = CmdPtr->PDUMsgID;
       
       CI_HkTelemetryPkt.ci_command_count++;
-      CFE_EVS_SendEvent(CI_CAPTUREPDU_CMD_EID, CFE_EVS_DEBUG,
+      CFE_EVS_SendEvent(CI_CAPTUREPDU_CMD_EID, CFE_EVS_EventType_DEBUG,
                 "CI: PDU Capture initialized for 0x%04X\n",CmdPtr->PDUMsgID);
     }
     else
     {
       CI_HkTelemetryPkt.ci_command_error_count++;
-      CFE_EVS_SendEvent(CI_INVALID_MSGID_ERR_EID, CFE_EVS_ERROR,
+      CFE_EVS_SendEvent(CI_INVALID_MSGID_ERR_EID, CFE_EVS_EventType_ERROR,
               "CI: Invalid PDU MsgID: 0x%04x\n",CmdPtr->PDUMsgID);
     }
   }
@@ -543,7 +546,7 @@ uint16 ExpectedLength = sizeof(CI_NoArgsCmd_t);
     if (PDUMessageID != 0)
     {
       CI_HkTelemetryPkt.ci_command_count++;
-      CFE_EVS_SendEvent(CI_STOP_PDUCAPTURE_CMD_EID, CFE_EVS_DEBUG,
+      CFE_EVS_SendEvent(CI_STOP_PDUCAPTURE_CMD_EID, CFE_EVS_EventType_DEBUG,
                 "CI: PDU Capture stopped for 0x%04X\n",PDUMessageID);
 
       /* Set the global data back to there initial values */
@@ -567,7 +570,7 @@ uint16 ExpectedLength = sizeof(CI_NoArgsCmd_t);
     else
     {
       CI_HkTelemetryPkt.ci_command_error_count++;
-      CFE_EVS_SendEvent(CI_NOCAPTURE_ERR_EID, CFE_EVS_ERROR,
+      CFE_EVS_SendEvent(CI_NOCAPTURE_ERR_EID, CFE_EVS_EventType_ERROR,
               "CI: PDU Capture is not enabled\n");
     }
   }
@@ -832,7 +835,7 @@ uint16 ActualLength = CFE_SB_GetTotalMsgLength(msg);
         CFE_SB_MsgId_t MessageID = CFE_SB_GetMsgId(msg);
         uint16 CommandCode = CFE_SB_GetCmdCode(msg);
 
-        CFE_EVS_SendEvent(CI_LEN_ERR_EID, CFE_EVS_ERROR,
+        CFE_EVS_SendEvent(CI_LEN_ERR_EID, CFE_EVS_EventType_ERROR,
            "Invalid msg length: ID = 0x%X,  CC = %d, Len = %d, Expected = %d",
               MessageID, CommandCode, ActualLength, ExpectedLength);
         result = FALSE;
